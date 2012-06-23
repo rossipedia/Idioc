@@ -1,10 +1,9 @@
 Idioc
 =====
 
-A wise man once said:
+[A wise man once said][1]:
 
 > Don't Reinvent The Wheel, Unless You Plan on Learning More About Wheels
-> [Jeff Atwood - Coding Horror][1]
 
 I've been looking into DI containers and IoC in general, and how they can benefit my development,
 so I figured "Hey, why not just build one and see what happens?"
