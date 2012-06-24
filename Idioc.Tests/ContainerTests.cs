@@ -204,6 +204,12 @@ namespace Idioc.Tests
         }
 
         [Test]
+        public void CanRegisterConcreteForInterfaceWeak()
+        {
+            container.Register(typeof(IA), typeof(A));
+        }
+
+        [Test]
         public void CanResolveInterfaceToConcrete()
         {
             container.Register<IA, A>();

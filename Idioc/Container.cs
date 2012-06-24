@@ -27,7 +27,17 @@ namespace Idioc
         /// <typeparam name="TResolved">The type to return as the implementation of the requested type</typeparam>
         public void Register<TRequested, TResolved>() where TResolved: TRequested
         {
-            RegisterInternal(typeof(TRequested), typeof(TResolved), null);
+            Register(typeof(TRequested), typeof(TResolved));
+        }
+
+        /// <summary>
+        /// Weakly typed version of Register&lt;&gt;
+        /// </summary>
+        /// <param name="requested"></param>
+        /// <param name="resolved"></param>
+        public void Register(Type requested, Type resolved)
+        {
+            RegisterInternal(requested, resolved, null);
         }
 
         /// <summary>
