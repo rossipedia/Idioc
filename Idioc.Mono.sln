@@ -1,0 +1,26 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 11.00
+# Visual Studio 2010
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Idioc", "Idioc\Idioc.csproj", "{5BFB591D-F272-4A3B-B2A2-70A7EBA52767}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Idioc.Mono.Tests", "Idioc.Mono.Tests\Idioc.Mono.Tests.csproj", "{DFBF0F57-C09B-4C8F-9442-67D3DD7DE26C}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{5BFB591D-F272-4A3B-B2A2-70A7EBA52767}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5BFB591D-F272-4A3B-B2A2-70A7EBA52767}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5BFB591D-F272-4A3B-B2A2-70A7EBA52767}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5BFB591D-F272-4A3B-B2A2-70A7EBA52767}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DFBF0F57-C09B-4C8F-9442-67D3DD7DE26C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DFBF0F57-C09B-4C8F-9442-67D3DD7DE26C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DFBF0F57-C09B-4C8F-9442-67D3DD7DE26C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DFBF0F57-C09B-4C8F-9442-67D3DD7DE26C}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(MonoDevelopProperties) = preSolution
+		StartupItem = Idioc\Idioc.csproj
+	EndGlobalSection
+EndGlobal
