@@ -32,7 +32,7 @@
             var container = new Container();
 
             var a = new A();
-            container.RegisterInstance<IA>(a);
+            container.RegisterSingle<IA>(a);
             container.Register<IB, B>();
             container.Register<IC, C>();
 

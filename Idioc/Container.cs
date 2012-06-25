@@ -1,15 +1,17 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Web;
 using Idioc.Exceptions;
 
 namespace Idioc
 {
     public class Container
     {
-        readonly Dictionary<Type, Registration> registeredTypes = new Dictionary<Type, Registration>();
+        readonly Dictionary<Type, IResolver> registeredTypes = new Dictionary<Type, IResolver>();
 
         /// <summary>
         /// Registers a type to itself
@@ -17,7 +19,16 @@ namespace Idioc
         /// <typeparam name="T"></typeparam>
         public void Register<T>()
         {
-            Register<T, T>();
+            Register(typeof(T));
+        }
+
+        /// <summary>
+        /// Registers a type for later resolution to itself
+        /// </summary>
+        /// <param name="type"></param>
+        public void Register(Type type)
+        {
+            Register(type, type);
         }
         
         /// <summary>
@@ -37,7 +48,18 @@ namespace Idioc
         /// <param name="resolved"></param>
         public void Register(Type requested, Type resolved)
         {
-            RegisterInternal(requested, resolved, null);
+            RegisterInternal(requested, resolved, new TransientResolver(GetConstructorResolverExpression(resolved)));
+        }
+
+        /// <summary>
+        /// Registers a type for resolution using a lambda function
+        /// </summary>
+        /// <param name="requested"></param>
+        /// <param name="resolved"></param>
+        /// <param name="lambda"></param>
+        public void Register(Type requested, Type resolved, Func<object> lambda)
+        {
+            RegisterInternal(requested, resolved, new TransientResolver(GetLambdaResolver(lambda)));
         }
 
         /// <summary>
@@ -47,8 +69,38 @@ namespace Idioc
         /// <param name="lambda">The lambda/method to use to return the resolved instance</param>
         public void Register<TRequested>(Func<TRequested> lambda)
         {
-            var resolver = Expression.Call(lambda.Method.IsStatic ? null : Expression.Constant(lambda.Target), lambda.Method);
-            RegisterInternal(typeof(TRequested), typeof(TRequested), resolver);
+            RegisterInternal(typeof(TRequested), typeof(TRequested), new TransientResolver(GetLambdaResolver(lambda)));
+        }
+
+        /// <summary>
+        /// Registers a type to be resolved later, but only once.
+        /// Ever subsequent resolution will return the same instance
+        /// </summary>
+        /// <typeparam name="TRequested"></typeparam>
+        public void RegisterSingle<TRequested>()
+        {
+            RegisterSingle(typeof(TRequested));
+        }
+
+        /// <summary>
+        /// Registers a type to be resolved later, but only once.
+        /// Ever subsequent resolution will return the same instance
+        /// </summary>
+        /// <param name="requestedType"></param>
+        public void RegisterSingle(Type requestedType)
+        {
+            RegisterSingle(requestedType, requestedType);
+        }
+
+        /// <summary>
+        /// Registers a type to be resolved later, but only once.
+        /// Ever subsequent resolution will return the same instance
+        /// </summary>
+        /// <param name="requestedType"></param>
+        /// <param name="resolvedType"></param>
+        public void RegisterSingle(Type requestedType, Type resolvedType)
+        {
+            RegisterInternal(requestedType, resolvedType, new SingleResolver(GetConstructorResolverExpression(resolvedType)));
         }
 
         /// <summary>
@@ -56,24 +108,33 @@ namespace Idioc
         /// </summary>
         /// <typeparam name="TRequested">The type to register for resolution</typeparam>
         /// <param name="instance">The instance to return as the resolved type</param>
-        public void RegisterInstance<TRequested>(TRequested instance)
+        public void RegisterSingle<TRequested>(TRequested instance)
         {
-            var resolver = Expression.Constant(instance);
-            RegisterInternal(typeof(TRequested), typeof(TRequested), resolver);
+            RegisterInternal(typeof(TRequested), typeof(TRequested), new SingleResolver(Expression.Constant(instance)));
         }
         
+        /// <summary>
+        /// Creates an expression resolver from a lambda
+        /// </summary>
+        /// <typeparam name="TRequested"></typeparam>
+        /// <param name="lambda"></param>
+        /// <returns></returns>
+        static Expression GetLambdaResolver<TRequested>(Func<TRequested> lambda)
+        {
+            return Expression.Call(lambda.Method.IsStatic ? null : Expression.Constant(lambda.Target), lambda.Method);
+        }
+
         /// <summary>
         /// Performs the actual work of registering a type for resolution
         /// </summary>
         /// <param name="requestedType">The type to register for resolution</param>
         /// <param name="resolvedType">The type to return as the implementation of the requested type</param>
         /// <param name="resolver">The expression to use to resolve the type</param>
-        void RegisterInternal(Type requestedType, Type resolvedType, Expression resolver)
+        void RegisterInternal(Type requestedType, Type resolvedType, IResolver resolver)
         {
             EnsureTypeIsRegisterable(requestedType, resolvedType);
-            var resolverExpression = resolver ?? GetConstructorResolverExpression(resolvedType);
-            EnsureDependenciesAreRegistered(resolverExpression);
-            registeredTypes[requestedType] = new Registration(resolverExpression);
+            EnsureDependenciesAreRegistered(resolver.Expression);
+            registeredTypes[requestedType] = resolver;
         }
 
         /// <summary>
@@ -122,10 +183,19 @@ namespace Idioc
         /// <returns></returns>
         public TRequested Resolve<TRequested>()
         {
-            var type = typeof(TRequested);
-            if (!IsRegistered(type))
-                throw new UnregisteredTypeException(type);
-            return (TRequested)GetRegistration(type).ResolverFunction();
+            return (TRequested)Resolve(typeof(TRequested));
+        }
+
+        /// <summary>
+        /// Weakly typed version of Resolve
+        /// </summary>
+        /// <param name="forType"> </param>
+        /// <returns></returns>
+        public object Resolve(Type forType)
+        {
+            if (!IsRegistered(forType))
+                throw new UnregisteredTypeException(forType);
+            return GetRegistration(forType).GetInstance();
         }
 
         /// <summary>
@@ -137,9 +207,6 @@ namespace Idioc
         /// describing the constructor to use for resolution</returns>
         ConstructorInfo GetConstructor(Type forType)
         {
-            if (IsRegistered(forType))
-                return GetRegistration(forType).ConstructorInfo;
-
             // Look for constructor with most args
             const BindingFlags bindingFlags = BindingFlags.Instance | BindingFlags.Public;
 
@@ -162,7 +229,7 @@ namespace Idioc
         /// </summary>
         /// <param name="type">The type to check</param>
         /// <returns>True if registered, false if not</returns>
-        bool IsRegistered(Type type)
+        public bool IsRegistered(Type type)
         {
             return registeredTypes.Any(r => r.Key == type || r.Value.ResolvedType == type);
         }
@@ -175,7 +242,7 @@ namespace Idioc
         internal Expression GetConstructorResolverExpression(Type type)
         {
             if (IsRegistered(type))
-                return GetRegistration(type).ResolverExpression;
+                return GetRegistration(type).Expression;
             // Primitive for now
             var ctor = GetConstructor(type);
             var parameterExpressions = from p in ctor.GetParameters()
@@ -188,32 +255,81 @@ namespace Idioc
         /// </summary>
         /// <param name="type">The type to retrieve the registration object for</param>
         /// <returns>The registration object</returns>
-        Registration GetRegistration(Type type)
+        IResolver GetRegistration(Type type)
         {
             return registeredTypes[type];
         }
+    }
+    
+    interface IResolver
+    {
+        Type ResolvedType { get; }
+        Expression Expression { get; }
+        object GetInstance();
+    }
 
-        /// <summary>
-        /// Stores the information necessary to resolve types
-        /// </summary>
-        class Registration
+    #region Resolvers
+
+    class SingleResolver : IResolver
+    {
+        readonly Lazy<object> instance;
+        readonly Func<object> function;
+
+        public SingleResolver(Expression expression)
         {
-            public readonly Type ResolvedType;
-            public readonly ConstructorInfo ConstructorInfo;
-            public readonly Expression ResolverExpression;
-            public readonly Func<object> ResolverFunction;
+            Expression = expression;
+            ResolvedType = expression.Type;
+            function = Expression.Lambda<Func<object>>(expression).Compile();
+            instance = new Lazy<object>(() => function());
+        }
 
-            /// <summary>
-            /// Constructs a new Type Registration
-            /// </summary>
-            /// <param name="resolverExpression"></param>
-            public Registration(Expression resolverExpression)
-            {
-                ResolvedType = resolverExpression.Type;
-                ConstructorInfo = (resolverExpression is NewExpression) ? ((NewExpression)resolverExpression).Constructor : null;
-                ResolverExpression = resolverExpression;
-                ResolverFunction = Expression.Lambda<Func<object>>(resolverExpression).Compile();
-            }
+        public Expression Expression { get; private set; }
+
+        public object GetInstance()
+        {
+            return instance.Value;
+        }
+
+        public Type ResolvedType { get; private set; }
+    }
+
+    class TransientResolver : IResolver
+    {
+        readonly Func<object> function;
+
+        public TransientResolver(Expression expression)
+        {
+            Expression = expression;
+            ResolvedType = expression.Type;
+            function = Expression.Lambda<Func<object>>(expression).Compile();
+        }
+
+        public Type ResolvedType { get; private set; }
+        public Expression Expression { get; private set; }
+
+        public object GetInstance()
+        {
+            return function();
+        }
+    }
+
+    #endregion
+}
+
+namespace Idioc.Wrappers
+{
+    public class ServiceLocatorWrapper : IServiceProvider
+    {
+        readonly Container container;
+
+        public ServiceLocatorWrapper(Container container)
+        {
+            this.container = container;
+        }
+
+        public object GetService(Type serviceType)
+        {
+            return container.Resolve(serviceType);
         }
     }
 }

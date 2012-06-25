@@ -1,5 +1,8 @@
 ﻿using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.Linq.Expressions;
+using System.Web;
 using Idioc.Exceptions;
 using NUnit.Framework;
 
@@ -15,7 +18,7 @@ namespace Idioc.Tests
         #endregion
 
         [SetUp]
-        public void InitTests()
+        public void SetupTests()
         {
             container = new Container();
         }
@@ -99,8 +102,7 @@ namespace Idioc.Tests
         {
             Assert.That(() => container.Register<C>(), Throws.InstanceOf<UnregisteredTypeException>().With.Property("Type").SameAs(typeof(A)));
         }
-
-
+        
         [Test]
         public void CanRegisterTypeWithSingleConstructorArgument()
         {
@@ -244,19 +246,65 @@ namespace Idioc.Tests
         public void CanResolveToInstance()
         {
             var a = new A();
-            container.RegisterInstance<IA>(a);
+            container.RegisterSingle<IA>(a);
 
             var a2 = container.Resolve<IA>();
             Assert.AreSame(a, a2);
         }
 
+        //[Test]
+        //public void SingleRegistrationWithoutSuppliedInstanceReturnsSame()
+        //{
+        //    container.RegisterSingle<A>();
+
+        //    var a1 = container.Resolve<A>();
+        //    var a2 = container.Resolve<A>();
+
+        //    Assert.AreSame(a1, a2);
+        //}
+
         [Test]
         public void CanResolveToNullInstance()
         {
             A a = null;
-            container.RegisterInstance<IA>(a);
+            container.RegisterSingle<IA>(a);
             var a2 = container.Resolve<IA>();
             Assert.IsNull(a2);
+        }
+    }
+
+    [TestFixture]
+    public class InstanceResolverTests
+    {
+        Expression creatorExpression;
+
+        [SetUp]
+        public void SetupTests()
+        {
+            creatorExpression = Expression.New(typeof(A).GetConstructor(new Type[0]));
+        }
+
+        [Test]
+        public void TransientResolverReturnsDifferentInstances()
+        {
+            var resolver = new TransientResolver(creatorExpression);
+
+            var a1 = (A)resolver.GetInstance();
+            var a2 = (A)resolver.GetInstance();
+
+            Assert.AreNotSame(a1, a2);
+        }
+
+        [Test]
+        public void SingleResolverReturnsSameInstances()
+        {
+            var resolver = new SingleResolver(creatorExpression);
+
+
+            var a1 = (A)resolver.GetInstance();
+            var a2 = (A)resolver.GetInstance();
+
+            Assert.AreSame(a1, a2);
         }
     }
 
