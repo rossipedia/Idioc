@@ -3,7 +3,7 @@
 //   (c) 2012 Bryan Ross
 // </copyright>
 // <summary>
-//   Defines the LambdaExpressionGenerator type.
+//   The default extensions for the Container. Implement most of our register methods here
 // </summary>
 // --------------------------------------------------------------------------------------------------------------------
 
