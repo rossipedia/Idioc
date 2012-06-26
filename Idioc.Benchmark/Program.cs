@@ -36,20 +36,20 @@
             container.Register<IB, B>();
             container.Register<IC, C>();
 
-            RunIdiocTest<IA>(container);
-            RunIdiocTest<IB>(container);
-            RunIdiocTest<IC>(container);
+            RunIdiocTest<IA>("Single", container);
+            RunIdiocTest<IB>("Transient", container);
+            RunIdiocTest<IC>("Combined", container);
 
 
         }
 
-        static void RunIdiocTest<T>(Container container)
+        static void RunIdiocTest<T>(string label, Container container)
         {
             var watch = Stopwatch.StartNew();
             for (int i = 0; i < 1000000; ++i)
                 container.Resolve<T>();
             watch.Stop();
-            Console.WriteLine("{0}: {1}", typeof(T).Name, watch.Elapsed);
+            Console.WriteLine("{0}: {1}ms", label, watch.ElapsedMilliseconds);
         }
     }
 }
