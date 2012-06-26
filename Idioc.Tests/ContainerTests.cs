@@ -1,15 +1,22 @@
-﻿using System;
-using System.Linq.Expressions;
-using NUnit.Framework;
-
+﻿// ReSharper disable EmptyConstructor
 // ReSharper disable UnusedParameter.Local
-// ReSharper disable EmptyConstructor
 // ReSharper disable ClassNeverInstantiated.Local
 // ReSharper disable MemberHidesStaticFromOuterClass
 
 namespace Idioc.Tests
 {
+    using System;
+    using System.Linq;
+    using System.Linq.Expressions;
+
+    using Idioc.Exceptions;
+    using Idioc.ExpressionGenerators;
+    using Idioc.InstanceProviders;
+
+    using NUnit.Framework;
+
     #region ConstructorExpressionGeneratorTests
+
     [TestFixture]
     public class ConstructorExpressionGeneratorTests
     {
@@ -30,7 +37,7 @@ namespace Idioc.Tests
         [SetUp]
         public void SetUp()
         {
-            generator = new ConstructorExpressionGenerator();
+            generator = new ConstructorExpressionGenerator(ConstructorSelectors.MostSpecific);
             generator.DependencyExpressionGenerating += (sender, args) => { args.Expression = generator.GenerateExpression(args.DependencyType); };
         }
 
@@ -188,7 +195,7 @@ namespace Idioc.Tests
         [Test]
         public void TestComplexExpression()
         {
-            var newGenerator = new ConstructorExpressionGenerator();
+            var newGenerator = new ConstructorExpressionGenerator(ConstructorSelectors.MostSpecific);
             int numFoos = 0;
             var fooGenerator = new LambdaExpressionGenerator(() => { numFoos++; return new ServiceFoo(); });
             var singleBar = new ServiceBar(new ServiceFoo());
@@ -232,7 +239,7 @@ namespace Idioc.Tests
         [Test]
         public void TransientShouldCreateNewObjectEveryTime()
         {
-            IExpressionGenerator generator = new ConstructorExpressionGenerator();
+            IExpressionGenerator generator = new ConstructorExpressionGenerator(ConstructorSelectors.MostSpecific);
             IInstanceProvider provider = new TransientInstanceProvider(typeof(object), generator);
 
             AssertTransientsAreDifferent(provider.GetInstance(), provider.GetInstance());
@@ -271,9 +278,9 @@ namespace Idioc.Tests
         }
 
         [Test]
-        public void ShouldCreateInstanceOnlyOnce()
+        public void ShouldCreateExpressionOnlyOnce()
         {
-            IExpressionGenerator generator = new ConstructorExpressionGenerator();
+            IExpressionGenerator generator = new ConstructorExpressionGenerator(ConstructorSelectors.MostSpecific);
             IInstanceProvider provider = new TransientInstanceProvider(typeof(object), generator);
             Expression expr = null;
             generator.ExpressionGenerated += (sender, args) => { expr = args.Expression; };
@@ -282,6 +289,23 @@ namespace Idioc.Tests
 
             Assert.NotNull(expr);
             Assert.AreSame(expr, provider.Expression);
+        }
+
+        [Test]
+        public void TransientProducerWithConstantExpressionShouldReturnSame()
+        {
+            var o1 = new object();
+            IExpressionGenerator generator = new ConstantExpressionGenerator(o1);
+            IInstanceProvider provider = new TransientInstanceProvider(typeof(object), generator);
+
+            var o2 = provider.GetInstance();
+
+            Assert.NotNull(o2);
+            Assert.AreSame(o1, o2);
+
+            // Stupid, but let's be sure
+            foreach (var obj in Enumerable.Range(0, 100).Select(i => provider.GetInstance())) 
+                Assert.AreSame(o1, obj);
         }
 
         static void AssertSinglesAreSame(object o1, object o2)
@@ -352,7 +376,7 @@ namespace Idioc.Tests
 
         static TypeRegistration CreateTransientWithConstructorTypeRegistration(Type concreteType)
         {
-            var generator = new ConstructorExpressionGenerator();
+            var generator = new ConstructorExpressionGenerator(ConstructorSelectors.MostSpecific);
             generator.DependencyExpressionGenerating +=
                 (sender, args) => { args.Expression = generator.GenerateExpression(args.DependencyType); };
 
@@ -398,7 +422,7 @@ namespace Idioc.Tests
 
         static TypeRegistration CreateSingleWithConstructorTypeRegistration(Type concreteType)
         {
-            var generator = new ConstructorExpressionGenerator();
+            var generator = new ConstructorExpressionGenerator(ConstructorSelectors.MostSpecific);
             generator.DependencyExpressionGenerating +=
                 (sender, args) => { args.Expression = generator.GenerateExpression(args.DependencyType); };
 
@@ -431,9 +455,7 @@ namespace Idioc.Tests
 
         class Baz
         {
-
             public readonly IFoo Foo;
-
             public Baz(IFoo foo)
             {
                 Foo = foo;
@@ -520,12 +542,48 @@ namespace Idioc.Tests
             Assert.NotNull(foo1);
             Assert.AreSame(foo1, foo2);
         }
+
+        [Test]
+        public void ShouldRegisterTransientConcreteTypeToLambda()
+        {
+            int i = 0;
+            container.Register(() => { i++; return new Foo(); });
+            var foo1 = container.Resolve<Foo>();
+            var foo2 = container.Resolve<Foo>();
+            Assert.AreNotSame(foo1, foo2);
+            Assert.Greater(i, 0);
+        }
+
+        [Test]
+        public void ShouldRegisterTransientAbstractTypeToLambda()
+        {
+            int i = 0;
+            container.Register<IFoo>(() => { i++; return new Foo(); });
+            var foo1 = this.container.Resolve<IFoo>();
+            var foo2 = this.container.Resolve<IFoo>();
+            Assert.AreNotSame(foo1, foo2);
+            Assert.Greater(i, 0);
+        }
+
+        [Test]
+        public void ShouldRegisterDependentToLambda()
+        {
+            int i = 0;
+            container.Register<IFoo>(() => { i++; return new Foo(); });
+            container.Register<Baz>();
+
+            var baz = container.Resolve<Baz>();
+
+            Assert.NotNull(baz);
+            Assert.NotNull(baz.Foo);
+            Assert.Greater(i, 0);
+        }
     }
 
     #endregion
 }
 
+// ReSharper restore MemberHidesStaticFromOuterClass
+// ReSharper restore ClassNeverInstantiated.Local
 // ReSharper restore UnusedParameter.Local
 // ReSharper restore EmptyConstructor
-// ReSharper restore ClassNeverInstantiated.Local
-// ReSharper restore MemberHidesStaticFromOuterClass
