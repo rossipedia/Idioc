@@ -235,7 +235,8 @@ namespace Idioc
         }
 
         /// <summary>
-        /// 
+        /// Generates an expression to create a new instance
+        /// of an object using a constructor
         /// </summary>
         /// <param name="type"></param>
         /// <returns></returns>
@@ -249,7 +250,7 @@ namespace Idioc
                                        select GetConstructorResolverExpression(p.ParameterType);
             return Expression.New(ctor, parameterExpressions);
         }
-
+        
         /// <summary>
         /// Returns the internal registration object for a given type
         /// </summary>
