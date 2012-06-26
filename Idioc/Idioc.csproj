@@ -42,8 +42,28 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="ConstantExpressionGenerator.cs" />
+    <Compile Include="ConstructorExpressionGenerator.cs" />
     <Compile Include="Container.cs" />
+    <Compile Include="ContainerExtensions.cs" />
+    <Compile Include="Guard.cs" />
+    <Compile Include="TypeNotConstructableException.cs" />
+    <Compile Include="TypeNotRegisteredException.cs" />
+    <Compile Include="TypeRegistration.cs" />
+    <Compile Include="DependencyResolutionException.cs" />
+    <Compile Include="ExpressionGeneratedEventArgs.cs" />
+    <Compile Include="ExpressionGeneratingEventArgs.cs" />
+    <Compile Include="ExpressionGenerator.cs" />
+    <Compile Include="IDependencyVisitor.cs" />
+    <Compile Include="IExpressionGenerator.cs" />
+    <Compile Include="IInstanceProvider.cs" />
+    <Compile Include="IInstanceProviderFactory.cs" />
+    <Compile Include="LambdaExpressionGenerator.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="SingleInstanceProvider.cs" />
+    <Compile Include="SingleInstanceProviderFactory.cs" />
+    <Compile Include="TransientInstanceProvider.cs" />
+    <Compile Include="TransientInstanceProviderFactory.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it.

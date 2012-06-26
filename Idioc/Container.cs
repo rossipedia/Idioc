@@ -1,137 +1,60 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Linq.Expressions;
-using System.Reflection;
-
 
 namespace Idioc
 {
-    #region EventArgs
-
-    class ExpressionGeneratingEventArgs : EventArgs
+    public class Container
     {
-        public ExpressionGeneratingEventArgs(Type dependencyType)
+        public Container()
         {
-            DependencyType = dependencyType;
+            DependencyResolver = ResolveDependencyExpression;
         }
 
-        public Type DependencyType { get; private set; }
-        public Expression Expression { get; set; }
-    }
+        private readonly Dictionary<Type, TypeRegistration> registrations = new Dictionary<Type, TypeRegistration>();
 
-    #endregion
+        public EventHandler<ExpressionGeneratingEventArgs> DependencyResolver { get; set; }
 
-    #region Interfaces
-
-    interface IExpressionGenerator
-    {
-        Expression GenerateExpression(Type type);
-        event EventHandler<ExpressionGeneratingEventArgs> DependencyExpressionGenerating;
-    }
-
-    interface IConstructorSelector
-    {
-        ConstructorInfo SelectConstructor(Type type);
-    }
-
-    #endregion
-
-    #region Implementations
-
-    class MostSpecificConstructorSelector : IConstructorSelector
-    {
-        public ConstructorInfo SelectConstructor(Type type)
+        public void Register(Type abstractType, TypeRegistration registration)
         {
-            var constructors = from constructor in type.GetConstructors()
-                               orderby constructor.GetParameters().Length descending
-                               select constructor;
+            if (abstractType == null) throw new ArgumentNullException("abstractType");
+            if (registration == null) throw new ArgumentNullException("registration");
 
-            return constructors.FirstOrDefault();
-        }
-    }
-
-    abstract class ExpressionGenerator : IExpressionGenerator
-    {
-        protected ExpressionGenerator()
-        {
-            DependencyExpressionGenerating = (sender, args) => { };
+            registrations.Add(abstractType, registration);
         }
 
-        public abstract Expression GenerateExpression(Type type);
-
-        public event EventHandler<ExpressionGeneratingEventArgs> DependencyExpressionGenerating;
-
-        protected virtual void OnExpressionGenerating(ExpressionGeneratingEventArgs args)
+        public object Resolve(Type type)
         {
-            var handler = DependencyExpressionGenerating;
-            handler(this, args);
+            if (IsRegistered(type))
+                return GetRegistration(type).GetInstance();
+
+            throw new TypeNotRegisteredException(type);
+        }
+
+        public void ResolveDependencyExpression(object sender, ExpressionGeneratingEventArgs args)
+        {
+            if (IsRegistered(args.DependencyType))
+                args.Expression = GetRegistration(args.DependencyType).Expression;
+            // Not setting args.Expression will cause a DependencyResolution error
+        }
+
+        private bool IsRegistered(Type type)
+        {
+            return registrations.ContainsKey(type);
+        }
+
+        private TypeRegistration GetRegistration(Type forType)
+        {
+            return registrations[forType];
+        }
+
+        public static class InstanceProviderFactories
+        {
+            // These don't have any state, so they don't need to be ThreadStatic
+            private static readonly Lazy<IInstanceProviderFactory> transient = new Lazy<IInstanceProviderFactory>(() => new TransientInstanceProviderFactory());
+            private static readonly Lazy<IInstanceProviderFactory> single = new Lazy<IInstanceProviderFactory>(() => new SingleInstanceProviderFactory());
+
+            public static IInstanceProviderFactory Transient { get { return transient.Value; } }
+            public static IInstanceProviderFactory Single { get { return single.Value; } }
         }
     }
-
-    class ConstructorExpressionGenerator : ExpressionGenerator
-    {
-        private readonly IConstructorSelector selector;
-
-        public ConstructorExpressionGenerator(IConstructorSelector selector)
-        {
-            this.selector = selector;
-        }
-
-        public override Expression GenerateExpression(Type type)
-        {
-            var constructor = selector.SelectConstructor(type);
-
-            var parameterExpressions = GenerateParameterExpressions(constructor);
-
-            return Expression.New(constructor, parameterExpressions);
-        }
-
-        private IEnumerable<Expression> GenerateParameterExpressions(ConstructorInfo constructor)
-        {
-            var parameterEventArgs = from p in constructor.GetParameters() 
-                                     select new ExpressionGeneratingEventArgs(p.ParameterType);
-
-            foreach (var eventArgs in parameterEventArgs)
-            {
-                OnExpressionGenerating(eventArgs);
-                yield return eventArgs.Expression;
-            }
-        }
-    }
-
-    class ConstantExpressionGenerator : ExpressionGenerator
-    {
-        private readonly object instance;
-
-        public ConstantExpressionGenerator(object instance)
-        {
-            this.instance = instance;
-            
-        }
-
-        public override Expression GenerateExpression(Type type)
-        {
-            return Expression.Constant(instance, type);
-        }
-    }
-
-    class LambdaExpressionGenerator : ExpressionGenerator
-    {
-        private readonly Func<object> lambda;
-
-        public LambdaExpressionGenerator(Func<object> lambda)
-        {
-            this.lambda = lambda;
-        }
-
-        public override Expression GenerateExpression(Type type)
-        {
-            // Extract body from lambda and 
-            var lambdaTarget = lambda.Target == null ? null : Expression.Constant(lambda.Target);
-            return Expression.Convert(Expression.Call(lambdaTarget, lambda.Method), type);
-        }
-    }
-
-    #endregion
 }
