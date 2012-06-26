@@ -1,347 +1,204 @@
 ﻿using System;
-using System.Collections;
-using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq.Expressions;
-using System.Web;
-using Idioc.Exceptions;
 using NUnit.Framework;
 
 namespace Idioc.Tests
 {
     [TestFixture]
-    public class ContainerTests
+    public class ConstructorExpressionGeneratorTests
     {
-        #region Private Definitions
+        IExpressionGenerator generator;
 
-        Container container;
+        class NoConstructor { }
 
-        #endregion
+        class NoArgs { public NoArgs() { } }
+
+        class SingleArg { public SingleArg(NoArgs noArgs) { } }
+
+        class MultiArg { public MultiArg(NoArgs noArgs1, NoArgs noArgs2, NoArgs noArgs3) { } }
 
         [SetUp]
-        public void SetupTests()
+        public void SetUp()
         {
-            container = new Container();
-        }
-        
-        [Test]
-        public void CannotRegisterPrimitiveType()
-        {
-            Assert.That(() => container.Register<int>(), Throws.InstanceOf<TypeNotConstructableException>().With.Property("Type").SameAs(typeof(int)));
+            generator = new ConstructorExpressionGenerator(new MostSpecificConstructorSelector());
+            generator.DependencyExpressionGenerating += (sender, args) => { args.Expression = generator.GenerateExpression(args.DependencyType); };
         }
 
         [Test]
-        public void CanRegisterClassType()
+        public void ShouldCreateExpressionWithNoConstructor()
         {
-            container.Register<A>();
+            var expression = generator.GenerateExpression(typeof(NoConstructor));
+
+            Assert.IsNotNull(expression);
+            Assert.IsInstanceOf<NewExpression>(expression);
+            Assert.AreEqual(0, ((NewExpression)expression).Arguments.Count);
         }
 
         [Test]
-        public void ResolveOfUnregisteredThrows()
+        public void ShouldCreateExpressionWithNoArgs()
         {
-            Assert.Throws<UnregisteredTypeException>(() => container.Resolve<A>());
+            var expression = generator.GenerateExpression(typeof(NoArgs));
+
+            Assert.IsNotNull(expression);
+            Assert.IsInstanceOf<NewExpression>(expression);
+            Assert.AreEqual(0, ((NewExpression)expression).Arguments.Count);
         }
 
         [Test]
-        public void ResolveOfUnregisteredAfterAnotherTypeHasRegisteredThrows()
+        public void ShouldCreateExpressionWithSingleArg()
         {
-            container.Register<A>();
-            Assert.Throws<UnregisteredTypeException>(() => container.Resolve<B>());
+            var expression = generator.GenerateExpression(typeof(SingleArg));
+
+            Assert.IsNotNull(expression);
+            Assert.IsInstanceOf<NewExpression>(expression);
+            Assert.AreEqual(1, ((NewExpression)expression).Arguments.Count);
         }
 
         [Test]
-        public void ResolveOfRegisteredReturnsInstance()
+        public void ShouldCreateExpressionWithMultiArgs()
         {
-            container.Register<A>();
-            var a = container.Resolve<A>();
-            Assert.IsNotNull(a);
+            var expression = generator.GenerateExpression(typeof(MultiArg));
+
+            Assert.IsNotNull(expression);
+            Assert.IsInstanceOf<NewExpression>(expression);
+            Assert.AreEqual(3, ((NewExpression)expression).Arguments.Count);
         }
 
         [Test]
-        public void CanRegisterMultipleTypes()
+        public void ShouldCreateCompilableExpression()
         {
-            container.Register<A>();
-            container.Register<B>();
-        }
+            var expression = generator.GenerateExpression(typeof(MultiArg));
 
-        [Test]
-        public void CanResolveMultipleTypes()
-        {
-            container.Register<A>();
-            container.Register<B>();
-
-            var a = container.Resolve<A>();
-            var b = container.Resolve<B>();
-
-            Assert.IsNotNull(a);
-            Assert.IsNotNull(b);
-        }
-
-        [Test]
-        public void CanResolveTypeWithDependencies()
-        {
-            container.Register<A>();
-            container.Register<C>();
-            var c = container.Resolve<C>();
-            Assert.IsNotNull(c);
-            Assert.IsNotNull(c.A);
-        }
-
-        [Test]
-        public void MultipleResolutionsReturnDifferentInstances()
-        {
-            container.Register<A>();
-
-            var a1 = container.Resolve<A>();
-            var a2 = container.Resolve<A>();
-
-            Assert.AreNotSame(a1, a2);
-        }
-
-        [Test]
-        public void ResolveTypeWithUnregisteredConstructorArgumentThrows()
-        {
-            Assert.That(() => container.Register<C>(), Throws.InstanceOf<UnregisteredTypeException>().With.Property("Type").SameAs(typeof(A)));
-        }
-        
-        [Test]
-        public void CanRegisterTypeWithSingleConstructorArgument()
-        {
-            container.Register<A>();
-            container.Register<C>();
-        }
-
-        [Test]
-        public void DuplicateTypeRegistrationThrows()
-        {
-            container.Register<A>();
-            Assert.That(() => container.Register<A>(), Throws.InstanceOf<TypeRegistrationException>().With.Property("Type").SameAs(typeof(A)));
-        }
-
-        [Test]
-        public void ConstructorExpressionWithSingleArgumentHasCorrectType()
-        {
-            var newExpression = container.GetConstructorResolverExpression(typeof(C)) as NewExpression;
-            Assert.IsNotNull(newExpression);
-            Assert.AreEqual(1, newExpression.Arguments.Count);
-
-            var argType = newExpression.Arguments[0].Type;
-            Assert.AreSame(typeof(A), argType);
-        }
-
-        [Test]
-        public void ConstructorExpressionWithSingleArgumentCreatesNewInstance()
-        {
-            var newExpression = container.GetConstructorResolverExpression(typeof(C));
-            var creatorFunction = Expression.Lambda<Func<object>>(newExpression).Compile();
-            var c = (C)creatorFunction();
-            Assert.IsNotNull(c);
-            Assert.IsNotNull(c.A);
-        }
-
-        [Test]
-        public void ConstructorExpressionWithSingleArgumentCreatesNewInstanceTwice()
-        {
-            var newExpression = container.GetConstructorResolverExpression(typeof(C));
-            var creatorFunction = Expression.Lambda<Func<object>>(newExpression).Compile();
-            var c1 = (C)creatorFunction();
-            var c2 = (C)creatorFunction();
-            Assert.AreNotSame(c1, c2);
-            Assert.AreNotSame(c1.A, c2.A);
-        }
-
-        [Test]
-        public void RegisterTypeWithUnregisteredNestedDependencyThrows()
-        {
-            Assert.That(() => container.Register<D>(), Throws.InstanceOf<UnregisteredTypeException>().With.Property("Type").SameAs(typeof(C)));
-        }
-
-        [Test]
-        public void CanRegisterTypeWithNestedDependency()
-        {
-            container.Register<A>();
-            container.Register<C>();
-            container.Register<D>();
-        }
-
-        [Test]
-        public void ConstructorExpressionsForSameRegisteredDependencyAreSameExpressions()
-        {
-            container.Register<A>();
-
-            var newAExpression = container.GetConstructorResolverExpression(typeof(A)) as NewExpression;
-            var newCExpression = container.GetConstructorResolverExpression(typeof(C)) as NewExpression;
-            var newEExpression = container.GetConstructorResolverExpression(typeof(E)) as NewExpression;
-
-            Assert.IsNotNull(newCExpression);
-            Assert.IsNotNull(newEExpression);
-
-            Assert.AreSame(newCExpression.Arguments[0], newAExpression);
-            Assert.AreSame(newEExpression.Arguments[0], newAExpression);
-        }
-
-        [Test]
-        public void CanCreateObjectWithNoDependenciesFromConstructFunction()
-        {
-            var newAExpression = container.GetConstructorResolverExpression(typeof(A));
-            var createFunc = Expression.Lambda<Func<A>>(newAExpression).Compile();
-            var a = createFunc();
-            Assert.IsNotNull(a);
-        }
-
-        [Test]
-        public void CanCreateObjectAndDependenciesFromConstructFunction()
-        {
-            var newDExpression = container.GetConstructorResolverExpression(typeof(D));
-            var createFunc = Expression.Lambda<Func<D>>(newDExpression).Compile();
-            var d = createFunc();
-            Assert.IsNotNull(d);
-            Assert.IsNotNull(d.C);
-            Assert.IsNotNull(d.C.A);
-        }
-
-        [Test]
-        public void CanRegisterConcreteForInterface()
-        {
-            container.Register<IA, A>();
-        }
-
-        [Test]
-        public void CanRegisterConcreteForInterfaceWeak()
-        {
-            container.Register(typeof(IA), typeof(A));
-        }
-
-        [Test]
-        public void CanResolveInterfaceToConcrete()
-        {
-            container.Register<IA, A>();
-            var a = container.Resolve<IA>();
-            Assert.IsNotNull(a);
-            Assert.IsInstanceOf<A>(a);
-        }
-
-        [Test]
-        public void CanResolveInterfaceDependency()
-        {
-            container.Register<IA, A>();
-            container.Register<F>();
-            var f = container.Resolve<F>();
-            Assert.IsNotNull(f);
-            Assert.IsNotNull(f.A);
-            Assert.IsInstanceOf<A>(f.A);
-        }
-
-        [Test]
-        public void CanResolveToLambda()
-        {
-            int i = 0;
-            container.Register<IA>(() => { i++; return new A(); });
-            var a = container.Resolve<IA>();
-            Assert.IsNotNull(a);
-            Assert.IsInstanceOf<A>(a);
-            Assert.AreEqual(1, i);
-        }
-
-        [Test]
-        public void CanResolveToInstance()
-        {
-            var a = new A();
-            container.RegisterSingle<IA>(a);
-
-            var a2 = container.Resolve<IA>();
-            Assert.AreSame(a, a2);
-        }
-
-        //[Test]
-        //public void SingleRegistrationWithoutSuppliedInstanceReturnsSame()
-        //{
-        //    container.RegisterSingle<A>();
-
-        //    var a1 = container.Resolve<A>();
-        //    var a2 = container.Resolve<A>();
-
-        //    Assert.AreSame(a1, a2);
-        //}
-
-        [Test]
-        public void CanResolveToNullInstance()
-        {
-            A a = null;
-            container.RegisterSingle<IA>(a);
-            var a2 = container.Resolve<IA>();
-            Assert.IsNull(a2);
+            var func = Expression.Lambda<Func<MultiArg>>(expression).Compile();
+            var o = func();
+            Assert.IsNotNull(o);
         }
     }
 
     [TestFixture]
-    public class InstanceResolverTests
+    public class ConstantExpressionGeneratorTests
     {
-        Expression creatorExpression;
+        IExpressionGenerator generator;
+        private object instance;
+        private Expression expression;
 
         [SetUp]
-        public void SetupTests()
+        public void SetUp()
         {
-            creatorExpression = Expression.New(typeof(A).GetConstructor(new Type[0]));
+            instance = new object();
+            generator = new ConstantExpressionGenerator(instance);
+            expression = generator.GenerateExpression(typeof(object));
         }
 
         [Test]
-        public void TransientResolverReturnsDifferentInstances()
+        public void ShouldCreateExpressionWithTypeObject()
         {
-            var resolver = new TransientResolver(creatorExpression);
-
-            var a1 = (A)resolver.GetInstance();
-            var a2 = (A)resolver.GetInstance();
-
-            Assert.AreNotSame(a1, a2);
+            Assert.IsNotNull(expression);
+            Assert.IsInstanceOf<ConstantExpression>(expression);
+            Assert.AreSame(((ConstantExpression)expression).Value, instance);
         }
 
         [Test]
-        public void SingleResolverReturnsSameInstances()
+        public void ShouldCreateCompilableExpression()
         {
-            var resolver = new SingleResolver(creatorExpression);
-
-
-            var a1 = (A)resolver.GetInstance();
-            var a2 = (A)resolver.GetInstance();
-
-            Assert.AreSame(a1, a2);
+            var func = Expression.Lambda<Func<object>>(expression).Compile();
+            var o = func();
+            Assert.AreSame(o, instance);
         }
     }
 
-    // ReSharper disable ClassNeverInstantiated.Global
-    // ReSharper disable MemberCanBePrivate.Global
-    // ReSharper disable UnusedParameter.Local
-
-    interface IA { }
-    
-    class A : IA { }
-
-    class B { }
-
-    class C
+    [TestFixture]
+    public class LamdaExpressionGeneratorTests
     {
-        public readonly A A;
-        public C(A a) { A = a; }
+        class Foo {}
+
+        [Test]
+        public void ShouldCreateExpressionWithSimpleLambda()
+        {
+            var generator = new LambdaExpressionGenerator(() => new Foo());
+            var expression = generator.GenerateExpression(typeof(Foo));
+            
+            Assert.NotNull(expression);
+            var unary = expression as UnaryExpression;
+            Assert.IsNotNull(unary);
+            Assert.AreEqual(ExpressionType.Convert, unary.NodeType);
+        }
+
+        [Test]
+        public void ShouldCreateCompilableExpression()
+        {
+            var generator = new LambdaExpressionGenerator(() => new Foo());
+            var expression = generator.GenerateExpression(typeof(Foo));
+            var func = Expression.Lambda<Func<Foo>>(expression).Compile();
+
+            var o = func();
+            Assert.IsNotNull(o);
+        }
     }
 
-    class D
+    [TestFixture]
+    public class ComplexGeneratorTests
     {
-        public readonly C C;
-        public D(C c) { C = c; }
-    }
+        class ServiceFoo { }
+        class ServiceBar
+        {
+            public ServiceFoo Foo { get; private set; }
 
-    class E
-    {
-        public E(A a) {}
-    }
+            public ServiceBar(ServiceFoo foo)
+            {
+                Foo = foo;
+            }
+        }
 
-    class F
-    {
-        public readonly IA A;
-        public F(IA a) { A = a; }
-    }
+        class Root
+        {
+            public ServiceFoo Foo { get; private set; }
+            public ServiceBar Bar { get; private set; }
 
-    // ReSharper restore UnusedParameter.Local
-    // ReSharper restore MemberCanBePrivate.Global
-    // ReSharper restore ClassNeverInstantiated.Global
+            public Root(ServiceFoo foo, ServiceBar bar)
+            {
+                Foo = foo;
+                Bar = bar;
+            }
+        }
+
+        [Test]
+        public void TestComplexExpression()
+        {
+            var newGenerator = new ConstructorExpressionGenerator(new MostSpecificConstructorSelector());
+            int numFoos = 0;
+            var fooGenerator = new LambdaExpressionGenerator(() => { numFoos++; return new ServiceFoo(); });
+            var singleBar = new ServiceBar(new ServiceFoo());
+            var barGenerator = new ConstantExpressionGenerator(singleBar);
+
+            newGenerator.DependencyExpressionGenerating += (sender, args) =>
+                {
+                    IExpressionGenerator generator;
+                    if (args.DependencyType == typeof(ServiceFoo))
+                        generator = fooGenerator;
+                    else if (args.DependencyType == typeof(ServiceBar))
+                        generator = barGenerator;
+                    else
+                        generator = (IExpressionGenerator)sender;
+                        
+                    args.Expression = generator.GenerateExpression(args.DependencyType);
+                };
+
+            var expression = newGenerator.GenerateExpression(typeof(Root));
+
+            var func = Expression.Lambda<Func<Root>>(expression).Compile();
+
+            var r = func();
+
+            Assert.IsNotNull(r);
+            Assert.IsNotNull(r.Bar);
+            Assert.IsNotNull(r.Foo);
+            Assert.Greater(numFoos, 0);
+            Assert.AreSame(r.Bar, singleBar);
+            Assert.AreSame(r.Bar.Foo, singleBar.Foo);
+            Assert.AreNotSame(r.Foo, r.Bar.Foo);
+            Assert.AreNotSame(r.Foo, singleBar.Foo);
+        }
+    }
 }
