@@ -3,7 +3,7 @@
 //   (c) 2012 Bryan Ross
 // </copyright>
 // <summary>
-//   Defines the DependencyResolutionException type.
+//   Defines the TypeNotRegisteredException type.
 // </summary>
 // --------------------------------------------------------------------------------------------------------------------
 

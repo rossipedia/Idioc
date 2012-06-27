@@ -20,7 +20,7 @@ namespace Idioc.Tests
     [TestFixture]
     public class ConstructorExpressionGeneratorTests
     {
-        
+
         ExpressionGenerator generator;
 
         class NoConstructor { }
@@ -32,7 +32,7 @@ namespace Idioc.Tests
         class MultiArg { public MultiArg(NoArgs noArgs1, NoArgs noArgs2, NoArgs noArgs3) { } }
 
         class NonConstructable { private NonConstructable() { } }
-        interface IFace {}
+        interface IFace { }
 
         [SetUp]
         public void SetUp()
@@ -304,7 +304,7 @@ namespace Idioc.Tests
             Assert.AreSame(o1, o2);
 
             // Stupid, but let's be sure
-            foreach (var obj in Enumerable.Range(0, 100).Select(i => provider.GetInstance())) 
+            foreach (var obj in Enumerable.Range(0, 100).Select(i => provider.GetInstance()))
                 Assert.AreSame(o1, obj);
         }
 
@@ -342,7 +342,7 @@ namespace Idioc.Tests
                 B = b;
             }
         }
-        
+
         [Test]
         public void ShouldRegisterConcreteTypeWithNoDependencies()
         {
@@ -434,7 +434,7 @@ namespace Idioc.Tests
     #region Container Tests
 
     // Let's see if I can wire up a container with just what I've got
-    
+
     [TestFixture]
     public class ContainerTests
     {

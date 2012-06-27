@@ -3,7 +3,7 @@
 //   (c) Bryan Ross
 // </copyright>
 // <summary>
-//   Defines the IInstanceProvider type.
+//   Defines the IInstanceProvider interface.
 // </summary>
 // --------------------------------------------------------------------------------------------------------------------
 

@@ -3,7 +3,7 @@
 //   (c) Bryan Ross
 // </copyright>
 // <summary>
-//   Defines the ExpressionGenerator type.
+//   Defines the IConstructorSelector interface
 // </summary>
 // --------------------------------------------------------------------------------------------------------------------
 

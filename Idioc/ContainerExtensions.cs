@@ -18,7 +18,7 @@ namespace Idioc
     /// Default ContainerExtensions. This class provides the basic interface to
     /// the <see cref="Container"/>.
     /// </summary>
-    public static class ContainerExtensions
+    public static partial class ContainerExtensions
     {
         /// <summary>
         /// Registers a type with the container as Transient (new instance every call).

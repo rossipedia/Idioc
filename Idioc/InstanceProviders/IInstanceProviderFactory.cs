@@ -3,7 +3,7 @@
 //   (c) Bryan Ross
 // </copyright>
 // <summary>
-//   Defines the IInstanceProviderFactory type.
+//   Defines the IInstanceProviderFactory interface.
 // </summary>
 // --------------------------------------------------------------------------------------------------------------------
 
