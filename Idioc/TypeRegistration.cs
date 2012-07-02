@@ -34,12 +34,6 @@ namespace Idioc
         private readonly IInstanceProviderFactory providerFactory;
 
         /// <summary>
-        /// The expression generator to use for generating
-        /// the provider expression for this type
-        /// </summary>
-        private readonly IExpressionGenerator generator;
-
-        /// <summary>
         /// Lazy-construct the provider that will be used 
         /// to provide instances
         /// </summary>
@@ -65,10 +59,16 @@ namespace Idioc
 
             this.concreteType = concreteType;
             this.providerFactory = providerFactory;
-            this.generator = generator;
+            this.Generator = generator;
 
             this.provider = new Lazy<IInstanceProvider>(this.CreateProvider);
         }
+
+        /// <summary>
+        /// Gets the expression generator to use for generating
+        /// the provider expression for this type
+        /// </summary>
+        public IExpressionGenerator Generator { get; private set; }
 
         /// <summary>
         /// Gets Expression.
@@ -101,7 +101,7 @@ namespace Idioc
         /// </returns>
         private IInstanceProvider CreateProvider()
         {
-            return this.providerFactory.CreateProvider(this.concreteType, this.generator);
+            return this.providerFactory.CreateProvider(this.concreteType, this.Generator);
         }
     }
  }

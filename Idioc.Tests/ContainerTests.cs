@@ -581,6 +581,45 @@ namespace Idioc.Tests
     }
 
     #endregion
+
+    #region Initializer Tests
+    [TestFixture]
+    public class InitializerTests
+    {
+        interface I { }
+        class A : I { }
+
+        Container container;
+
+        [SetUp]
+        public void SetUp()
+        {
+            container = new Container();
+            container.Register<I, A>();
+        }
+
+        [Test]
+        public void ShouldAddInitializer()
+        {
+            int i = 0;
+            container.AddInitializer<I>(iface => i++);
+            var o = container.Resolve<I>();
+            Assert.AreEqual(1, i);
+        }
+
+        [Test]
+        public void ShouldAddMultipleInitializer()
+        {
+            int i = 0;
+            int j = 0;
+            container.AddInitializer<I>(iface => i++);
+            container.AddInitializer<I>(iface => j++);
+            var o = container.Resolve<I>();
+            Assert.AreEqual(1, i);
+            Assert.AreEqual(1, j);
+        }
+    }
+    #endregion
 }
 
 // ReSharper restore MemberHidesStaticFromOuterClass

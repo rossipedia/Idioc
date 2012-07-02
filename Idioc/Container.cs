@@ -112,7 +112,7 @@ namespace Idioc
         /// <returns>
         /// True if the type has been registered, false if it has not.
         /// </returns>
-        private bool IsRegistered(Type type)
+        public bool IsRegistered(Type type)
         {
             return this.registrations.ContainsKey(type);
         }
@@ -129,7 +129,7 @@ namespace Idioc
         /// <exception cref="KeyNotFoundException">
         /// Thrown when the type has not been registered with this container
         /// </exception>
-        private TypeRegistration GetRegistration(Type forType)
+        public TypeRegistration GetRegistration(Type forType)
         {
             return this.registrations[forType];
         }

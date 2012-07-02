@@ -44,6 +44,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ConstructorSelectors.cs" />
+    <Compile Include="ContainerExtensions.Initializers.cs" />
     <Compile Include="ExpressionGenerators\ConstantExpressionGenerator.cs" />
     <Compile Include="ExpressionGenerators\ConstructorExpressionGenerator.cs" />
     <Compile Include="Container.cs" />
